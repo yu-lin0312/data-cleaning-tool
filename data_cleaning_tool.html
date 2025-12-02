@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>對帳轉檔小幫手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94A3B8;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100">
+
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <!-- Header -->
+        <div class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-light text-slate-800 tracking-wide mb-3">
+                對帳轉檔小幫手
+            </h1>
+            <p class="text-slate-500 text-sm md:text-base">
+                將對帳排班文字轉換為 Excel 可用格式
+            </p>
+        </div>
+
+        <div class="grid lg:grid-cols-2 gap-6">
+            <!-- Input Section -->
+            <div
+                class="bg-white/60 backdrop-blur-xl border border-white/50 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl flex flex-col">
+                <div class="p-6 border-b border-slate-200/50">
+                    <h2 class="text-lg font-medium text-slate-700 flex items-center gap-2">
+                        <i data-lucide="file-spreadsheet" class="w-5 h-5 text-indigo-500"></i>
+                        貼上原始資料
+                    </h2>
+                </div>
+                <div class="p-6 space-y-4 flex-1 flex flex-col">
+                    <textarea id="inputText"
+                        placeholder="請將排班文字貼在這裡...&#10;&#10;範例格式：&#10;11/21&#10;06:00 仁本 高雄聖恩 禮生出殯&#10;案名：林寬泰&#10;立軒&#10;&#10;08:30 北門 台南聖恩 禮生出殯&#10;鮪魚 至鈞&#10;——&#10;11/22&#10;..."
+                        class="flex-1 min-h-[400px] w-full p-4 rounded-xl bg-white/50 border border-slate-200/50 text-slate-700 placeholder:text-slate-400 resize-none font-mono text-sm focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"></textarea>
+                    <div class="flex gap-3">
+                        <button id="parseBtn" onclick="handleParse()" disabled
+                            class="flex-1 py-2.5 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white rounded-lg transition-all duration-300 shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            開始轉換
+                        </button>
+                        <button onclick="handleClear()"
+                            class="py-2.5 px-4 border border-slate-300 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition-colors">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Output Section -->
+            <div
+                class="bg-white/60 backdrop-blur-xl border border-white/50 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl flex flex-col">
+                <div class="p-6 border-b border-slate-200/50">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-lg font-medium text-slate-700 flex items-center gap-2">
+                            <i data-lucide="clipboard-copy" class="w-5 h-5 text-indigo-500"></i>
+                            轉換結果
+                            <span id="countBadge"
+                                class="hidden text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded-full ml-2">
+                                0 筆
+                            </span>
+                        </h2>
+                        <div id="actionButtons" class="hidden flex gap-2 items-center">
+                            <div class="relative">
+                                <i data-lucide="search"
+                                    class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                <input type="text" id="nameFilter" oninput="filterData()" placeholder="搜尋姓名..."
+                                    class="w-32 h-8 pl-8 pr-3 text-xs rounded-lg border border-slate-200 bg-white/50 focus:bg-white focus:outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200 transition-all">
+                            </div>
+                            <button onclick="handleDownloadCsv()"
+                                class="h-8 px-3 text-xs font-medium bg-white/70 hover:bg-white text-slate-600 border border-slate-200 rounded-lg flex items-center gap-1 transition-colors">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                CSV
+                            </button>
+                            <button id="copyBtn" onclick="handleCopyToClipboard()"
+                                class="h-8 px-3 text-xs font-medium bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white rounded-lg flex items-center gap-1 transition-all shadow-sm">
+                                <i data-lucide="clipboard-copy" class="w-3.5 h-3.5"></i>
+                                複製
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6 pt-4 flex-1 flex flex-col overflow-hidden">
+                    <div id="emptyState"
+                        class="min-h-[400px] flex items-center justify-center border-2 border-dashed border-slate-300/50 rounded-lg bg-white/30">
+                        <p class="text-slate-400 text-center">
+                            轉換後的資料會顯示在這裡<br />
+                            <span class="text-xs">可直接複製貼到 Excel</span>
+                        </p>
+                    </div>
+                    <div id="resultContainer" class="hidden min-h-[400px] max-h-[500px] overflow-auto rounded-lg">
+                        <table class="w-full">
+                            <thead class="sticky top-0 z-10">
+                                <tr class="border-b border-slate-200/50 bg-slate-50/90 backdrop-blur-sm">
+                                    <th
+                                        class="px-4 py-3 text-left text-xs font-medium text-indigo-600 whitespace-nowrap">
+                                        日期</th>
+                                    <th
+                                        class="px-4 py-3 text-left text-xs font-medium text-indigo-600 whitespace-nowrap">
+                                        姓名</th>
+                                    <th
+                                        class="px-4 py-3 text-left text-xs font-medium text-indigo-600 whitespace-nowrap">
+                                        開始時間</th>
+                                    <th
+                                        class="px-4 py-3 text-left text-xs font-medium text-indigo-600 whitespace-nowrap">
+                                        地點</th>
+                                    <th
+                                        class="px-4 py-3 text-left text-xs font-medium text-indigo-600 whitespace-nowrap">
+                                        廠商/單位</th>
+                                    <th
+                                        class="px-4 py-3 text-left text-xs font-medium text-indigo-600 whitespace-nowrap">
+                                        工作內容</th>
+                                    <th
+                                        class="px-4 py-3 text-left text-xs font-medium text-indigo-600 whitespace-nowrap">
+                                        金額</th>
+                                    <th
+                                        class="px-4 py-3 text-left text-xs font-medium text-indigo-600 whitespace-nowrap">
+                                        收款狀態</th>
+                                    <th
+                                        class="px-4 py-3 text-left text-xs font-medium text-indigo-600 whitespace-nowrap">
+                                        備註</th>
+                                    <th
+                                        class="px-4 py-3 text-left text-xs font-medium text-indigo-600 whitespace-nowrap">
+                                        金額2</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultBody" class="divide-y divide-slate-100/50">
+                                <!-- Data rows will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="mt-8 bg-white/60 backdrop-blur-xl border border-white/50 shadow-xl rounded-xl p-6">
+            <h3 class="text-slate-700 font-medium mb-4">使用說明</h3>
+            <div class="grid md:grid-cols-3 gap-6 text-sm text-slate-500">
+                <div class="flex gap-3">
+                    <div
+                        class="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white flex items-center justify-center flex-shrink-0 font-medium">
+                        1</div>
+                    <p>將排班文字貼入左側輸入框，格式為日期標題加上各場次資料</p>
+                </div>
+                <div class="flex gap-3">
+                    <div
+                        class="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white flex items-center justify-center flex-shrink-0 font-medium">
+                        2</div>
+                    <p>點擊「開始轉換」，系統會自動解析姓名、時間、地點等欄位</p>
+                </div>
+                <div class="flex gap-3">
+                    <div
+                        class="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white flex items-center justify-center flex-shrink-0 font-medium">
+                        3</div>
+                    <p>點擊「複製」按鈕，直接貼到 Excel 即可自動分欄</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rules Section -->
+        <div class="mt-6 bg-white/60 backdrop-blur-xl border border-white/50 shadow-xl rounded-xl p-6">
+            <h3 class="text-slate-700 font-medium mb-6 flex items-center gap-2">
+                <i data-lucide="file-spreadsheet" class="w-5 h-5 text-indigo-500"></i>
+                轉換規則
+            </h3>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- 姓名對照 -->
+                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100/50">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-7 h-7 rounded-lg bg-blue-500 flex items-center justify-center">
+                            <i data-lucide="user" class="w-4 h-4 text-white"></i>
+                        </div>
+                        <p class="font-medium text-slate-700">姓名對照</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-slate-600" id="nameMappingList">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- 主項金額 -->
+                <div class="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-100/50">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center">
+                            <i data-lucide="dollar-sign" class="w-4 h-4 text-white"></i>
+                        </div>
+                        <p class="font-medium text-slate-700">主項金額</p>
+                    </div>
+                    <div class="space-y-1.5 text-xs text-slate-600" id="mainFeeList">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- 法事/其他 -->
+                <div class="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-100/50">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-7 h-7 rounded-lg bg-amber-500 flex items-center justify-center">
+                            <i data-lucide="calendar" class="w-4 h-4 text-white"></i>
+                        </div>
+                        <p class="font-medium text-slate-700">法事/其他</p>
+                    </div>
+                    <div class="space-y-1.5 text-xs text-slate-600" id="otherFeeList">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- 特殊規則 + 專案 -->
+                <div class="space-y-4">
+                    <!-- 聖恩龍巖特殊規則 -->
+                    <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100/50">
+                        <div class="flex items-center gap-2 mb-3">
+                            <div class="w-7 h-7 rounded-lg bg-purple-500 flex items-center justify-center">
+                                <i data-lucide="star" class="w-4 h-4 text-white"></i>
+                            </div>
+                            <p class="font-medium text-slate-700 text-sm">聖恩/龍巖</p>
+                        </div>
+                        <div class="space-y-1.5 text-xs text-slate-600">
+                            <div class="flex justify-between"><span>台南禮生出殯</span><span
+                                    class="font-medium text-purple-600">1500</span></div>
+                            <div class="flex justify-between"><span>高雄禮生出殯</span><span
+                                    class="font-medium text-purple-600">1400</span></div>
+                        </div>
+                    </div>
+
+                    <!-- 專案業主 -->
+                    <div class="bg-gradient-to-br from-slate-50 to-gray-100 rounded-xl p-4 border border-slate-200/50">
+                        <div class="flex items-center gap-2 mb-3">
+                            <div class="w-7 h-7 rounded-lg bg-slate-500 flex items-center justify-center">
+                                <i data-lucide="building-2" class="w-4 h-4 text-white"></i>
+                            </div>
+                            <p class="font-medium text-slate-700 text-sm">專案業主</p>
+                        </div>
+                        <div class="flex flex-wrap gap-1 text-xs" id="projectVendorList">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== Constants & Config ====================
+
+        const projectVendors = [
+            '松佑', '尚閔', '龍霖', '銘棋', '高盛', '龍圓', '新光人生', '采邑',
+            '鴻德', '祐安', '和榕', '協和', '上德', '高誠', '公庭', '福祥',
+            '出云', '恆善蔡嘉薇', '群豐東昇', '南華靜觀', '南都', '榮祥',
+        ];
+
+        const locationTypoFixes = {
+            '人本': '仁本',
+        };
+
+        const nameMapping = {
+            '勳': '王健勳',
+            '千': '林千智',
+            '千智': '林千智',
+            '黑': '郭育帆',
+            '小黑': '郭育帆',
+            '小郭': '郭育帆',
+            '潘': '潘信安',
+            '小潘': '潘信安',
+            '魚': '謝瑋育',
+            '鮪魚': '謝瑋育',
+            '郭': '郭鴻億',
+            '邱': '邱暐傑',
+            '暐傑': '邱暐傑',
+            '聰': '戴耀聰',
+            '燿聰': '戴耀聰',
+            '耀聰': '戴耀聰',
+            '鈞': '鄒至鈞',
+            '至鈞': '鄒至鈞',
+            '科': '何科賢',
+            '賢': '何科賢',
+            '風': '王德風',
+            '玲': '蔡采玲',
+            '小玲': '蔡采玲',
+            '九': '黃湘玲',
+            '小九': '黃湘玲',
+            '瑩': '戴嘉瑩',
+            '嘉瑩': '戴嘉瑩',
+            '珼': '袁翊珼',
+            '貝貝': '袁翊珼',
+            '軒': '謝立軒',
+            '立軒': '謝立軒',
+            '文': '羅文昕',
+            '阿文': '羅文昕',
+            '承': '葉承恩',
+            '恩': '葉承恩',
+            '承恩': '葉承恩',
+            '羊羊': '楊洋',
+            '洋洋': '楊洋',
+            '力宏': '林立宏',
+            '立宏': '林立宏',
+        };
+
+        const preservedNames = ['潘調', '勳調'];
+
+        // For UI Display
+        const MAIN_FEES_DISPLAY = {
+            '入殮': 1000,
+            '出殯': 1200,
+            '入殮出殯': 1700,
+            '入殮扛夫': 1700,
+            '入殮火化': 1000,
+            '禮生': 1000,
+            '禮生出殯': 1400,
+            '禮生扶棺': 1500,
+            '午夜功德': 2000,
+            '半日功德': 1000,
+            '招待': 1200,
+            '接體': 1200,
+            '晉塔': 1000
+        };
+
+        const OTHER_FEES_DISPLAY = {
+            '頭七~滿七': 500,
+            '女兒旬': 500,
+            '接體空跑': 500,
+            '退冰': 300,
+            '驗屍/復驗': 500,
+            '佈置': 500,
+            '安主/安位': 1000,
+            '返主': 1000,
+            '顧SPA': 500,
+            '教會出殯': 1200
+        };
+
+        // ==================== Helper Functions ====================
+
+        function isProjectVendor(vendor) {
+            if (!vendor) return false;
+            return projectVendors.some(pv => vendor.includes(pv));
+        }
+
+        function fixLocationTypo(location) {
+            if (!location) return location;
+            let fixed = location;
+            for (const [typo, correct] of Object.entries(locationTypoFixes)) {
+                fixed = fixed.replace(typo, correct);
+            }
+            return fixed;
+        }
+
+        function convertName(name) {
+            const trimmed = name.trim();
+            if (preservedNames.includes(trimmed)) {
+                return trimmed;
+            }
+            return nameMapping[trimmed] || trimmed;
+        }
+
+        function formatTime(timeStr) {
+            let cleaned = timeStr.replace(/[:\s]/g, '');
+
+            if (cleaned.length === 1) {
+                return '0' + cleaned + '00';
+            } else if (cleaned.length === 2) {
+                return cleaned + '00';
+            } else if (cleaned.length === 3) {
+                return '0' + cleaned;
+            } else if (cleaned.length === 4) {
+                return cleaned;
+            }
+
+            const match = timeStr.match(/(\d{1,2})[:\s]?(\d{0,2})/);
+            if (match) {
+                const hours = match[1].padStart(2, '0');
+                const minutes = (match[2] || '00').padStart(2, '0');
+                return hours + minutes;
+            }
+
+            return timeStr;
+        }
+
+        function isDateLine(line) {
+            return /^\d{1,2}\/\d{1,2}\s*$/.test(line.trim());
+        }
+
+        function isSeparatorLine(line) {
+            return /^[-—─]+$/.test(line.trim()) || line.trim() === '';
+        }
+
+        function isScheduleLine(line) {
+            return /^\d{1,2}[:\s]?\d{0,2}\s+/.test(line.trim());
+        }
+
+        function isCaseNameLine(line) {
+            return line.trim().startsWith('案名：') || line.trim().startsWith('案名:');
+        }
+
+        function isRitualistLine(line) {
+            return line.trim().startsWith('禮儀師：') || line.trim().startsWith('禮儀師:');
+        }
+
+        function isNamesLine(line) {
+            const trimmed = line.trim();
+            if (!trimmed) return false;
+            if (isDateLine(line)) return false;
+            if (isSeparatorLine(line)) return false;
+            if (isScheduleLine(line)) return false;
+            if (isCaseNameLine(line)) return false;
+            if (isRitualistLine(line)) return false;
+
+            return /^[\u4e00-\u9fa5\s]+$/.test(trimmed);
+        }
+
+        function parseScheduleLine(line) {
+            const trimmed = line.trim();
+
+            const timeMatch = trimmed.match(/^(\d{1,2}[:\s]?\d{0,2})\s+(.+)$/);
+            if (!timeMatch) return null;
+
+            const time = formatTime(timeMatch[1]);
+            const rest = timeMatch[2];
+
+            const parts = rest.split(/\s+/);
+
+            if (parts.length >= 3) {
+                const location = fixLocationTypo(parts[0]);
+                const vendor = parts[1];
+                const workContent = parts.slice(2).join('');
+                return { time, location, vendor, workContent };
+            } else if (parts.length === 2) {
+                return { time, location: fixLocationTypo(parts[0]), vendor: parts[1], workContent: '' };
+            } else {
+                return { time, location: fixLocationTypo(rest), vendor: '', workContent: '' };
+            }
+        }
+
+        function calculateAmount(workContent) {
+            if (!workContent) return { amount: 0, needsManualCheck: true };
+
+            const content = workContent.trim();
+
+            // === 特殊地點/情況 ===
+            if (/台南山上鄉/.test(content)) {
+                if (/入殮出殯/.test(content)) return { amount: 1500, needsManualCheck: false };
+                if (/禮生/.test(content)) return { amount: 1500, needsManualCheck: false };
+            }
+            if (/林園/.test(content) && /禮生/.test(content)) {
+                return { amount: 1200, needsManualCheck: false };
+            }
+            if (/臭臭/.test(content) && /入殮出殯/.test(content)) {
+                return { amount: 2500, needsManualCheck: false };
+            }
+            if (/接臭屍/.test(content)) {
+                return { amount: 2000, needsManualCheck: false };
+            }
+
+            // === 組合項目 ===
+            if (/洗穿/.test(content) && /化妝/.test(content) && /入殮出殯/.test(content)) {
+                return { amount: 2400, needsManualCheck: false };
+            }
+            if (/更衣入驗/.test(content) && /禮生出殯/.test(content)) {
+                return { amount: 2400, needsManualCheck: false };
+            }
+            if (/洗穿/.test(content) && /入殮出殯/.test(content)) {
+                return { amount: 2200, needsManualCheck: false };
+            }
+            if (/洗穿/.test(content) && /入殮扛夫/.test(content)) {
+                return { amount: 2200, needsManualCheck: false };
+            }
+            if (/化妝/.test(content) && /入殮出殯/.test(content) && !/更衣/.test(content)) {
+                return { amount: 2200, needsManualCheck: false };
+            }
+            if (/更衣/.test(content) && /入殮出殯/.test(content) && !/化妝/.test(content)) {
+                return { amount: 2200, needsManualCheck: false };
+            }
+            if ((/加衣/.test(content) || /更衣/.test(content)) && /入殮/.test(content) && !/出殯/.test(content)) {
+                return { amount: 1500, needsManualCheck: false };
+            }
+            if (/出殯/.test(content) && /回洗/.test(content)) {
+                return { amount: 1500, needsManualCheck: false };
+            }
+            if (/入殮出殯/.test(content) && /\+禮生/.test(content)) {
+                return { amount: 1900, needsManualCheck: false };
+            }
+            if (/入殮/.test(content) && /出殯/.test(content) && /禮生/.test(content)) {
+                return { amount: 1900, needsManualCheck: false };
+            }
+
+            // === 午夜功德 ===
+            if (/午夜功德/.test(content)) {
+                return { amount: 2000, needsManualCheck: false };
+            }
+
+            // === 換罐樹葬 ===
+            if (/換罐樹葬/.test(content)) {
+                return { amount: 2000, needsManualCheck: false };
+            }
+
+            // === 法事/週期/功德類 ===
+            if (/半日功德|半日燒庫|^半日$/.test(content)) {
+                return { amount: 1000, needsManualCheck: false };
+            }
+            if (/佛教藥懺/.test(content)) {
+                return { amount: 500, needsManualCheck: false };
+            }
+            if (/頭七.*燒庫|頭七\+燒庫/.test(content)) {
+                return { amount: 500, needsManualCheck: false };
+            }
+            if (/頭七|二七|三七|五七|滿七|女兒旬|女兒七/.test(content)) {
+                return { amount: 500, needsManualCheck: false };
+            }
+
+            // === 接體/冷凍/驗屍相關 ===
+            if (/接體空跑/.test(content)) {
+                return { amount: 500, needsManualCheck: false };
+            }
+            if (/接體/.test(content)) {
+                return { amount: 1200, needsManualCheck: false };
+            }
+            if (/退冰/.test(content)) {
+                return { amount: 300, needsManualCheck: false };
+            }
+            if (/驗屍|復驗|相驗/.test(content)) {
+                return { amount: 500, needsManualCheck: false };
+            }
+
+            // === 其他單項 ===
+            if (/豎靈/.test(content)) {
+                return { amount: 500, needsManualCheck: false };
+            }
+            if (/引魂/.test(content)) {
+                return { amount: 500, needsManualCheck: false };
+            }
+            if (/佈置/.test(content)) {
+                return { amount: 500, needsManualCheck: false };
+            }
+            if (/安主|安位/.test(content)) {
+                return { amount: 1000, needsManualCheck: false };
+            }
+            if (/返主/.test(content)) {
+                return { amount: 1000, needsManualCheck: false };
+            }
+            if (/晉塔|進塔/.test(content)) {
+                return { amount: 1000, needsManualCheck: false };
+            }
+            if (/顧spa/i.test(content)) {
+                return { amount: 500, needsManualCheck: false };
+            }
+            if (/招待/.test(content)) {
+                return { amount: 1200, needsManualCheck: false };
+            }
+            if (/扶棺/.test(content) && !/禮生/.test(content)) {
+                return { amount: 700, needsManualCheck: false };
+            }
+
+            // === 主項判斷 ===
+            if (/入殮扛夫/.test(content) || (/入殮/.test(content) && /扛夫/.test(content))) {
+                return { amount: 1700, needsManualCheck: false };
+            }
+            if (/入殮火化|入殮送火/.test(content)) {
+                return { amount: 1000, needsManualCheck: false };
+            }
+            if (/入殮出殯/.test(content) || (/入殮/.test(content) && /出殯/.test(content))) {
+                return { amount: 1700, needsManualCheck: false };
+            }
+            if (/禮生扶棺|禮生扛棺/.test(content)) {
+                return { amount: 1500, needsManualCheck: false };
+            }
+            if (/禮生出殯/.test(content)) {
+                return { amount: 1400, needsManualCheck: false };
+            }
+            if (/禮生/.test(content) && !/出殯|扶棺|扛棺/.test(content)) {
+                return { amount: 1000, needsManualCheck: false };
+            }
+            if (/入殮/.test(content) && !/出殯|扛夫|火化|送火/.test(content)) {
+                return { amount: 1000, needsManualCheck: false };
+            }
+            if (/出殯/.test(content) && !/入殮|禮生|回洗/.test(content)) {
+                return { amount: 1200, needsManualCheck: false };
+            }
+
+            return { amount: 0, needsManualCheck: true };
+        }
+
+        function parseScheduleData(text) {
+            const lines = text.split('\n');
+            const results = [];
+
+            let currentDate = '';
+            let currentSchedule = null;
+            let currentCaseName = '';
+            let currentRitualist = '';
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+
+                if (isSeparatorLine(line)) {
+                    continue;
+                }
+
+                if (isDateLine(line)) {
+                    const dateMatch = line.trim().match(/(\d{1,2})\/(\d{1,2})/);
+                    if (dateMatch) {
+                        currentDate = `2025/${dateMatch[1].padStart(2, '0')}/${dateMatch[2].padStart(2, '0')}`;
+                    }
+                    currentSchedule = null;
+                    currentCaseName = '';
+                    currentRitualist = '';
+                    continue;
+                }
+
+                if (isScheduleLine(line)) {
+                    const parsed = parseScheduleLine(line);
+                    if (parsed) {
+                        let workContent = parsed.workContent;
+                        if (workContent === '半日') workContent = '半日功德';
+                        if (/入出/.test(workContent) && !/入殮出殯/.test(workContent)) {
+                            workContent = workContent.replace(/入出/g, '入殮出殯');
+                        }
+
+                        currentSchedule = {
+                            date: currentDate,
+                            startTime: parsed.time,
+                            location: parsed.location,
+                            vendor: parsed.vendor.replace(/[哥姐]/g, ''),
+                            workContent: workContent,
+                        };
+                        currentCaseName = '';
+                        currentRitualist = '';
+                    }
+                    continue;
+                }
+
+                if (isCaseNameLine(line)) {
+                    currentCaseName = line.trim().replace(/^案名[：:]/, '').trim();
+                    continue;
+                }
+
+                if (isRitualistLine(line)) {
+                    currentRitualist = line.trim().replace(/^禮儀師[：:]/, '').trim();
+                    continue;
+                }
+
+                if (isNamesLine(line) && currentSchedule) {
+                    const names = line.trim().split(/\s+/).filter(n => n);
+
+                    for (const name of names) {
+                        const fullName = convertName(name);
+                        let notes = currentRitualist || currentCaseName || '';
+
+                        const { amount, needsManualCheck } = calculateAmount(currentSchedule.workContent);
+                        if (needsManualCheck && notes) {
+                            notes = notes + '；需人工確認金額';
+                        } else if (needsManualCheck) {
+                            notes = '需人工確認金額';
+                        }
+
+                        const isProject = isProjectVendor(currentSchedule.vendor);
+
+                        if (isProject) {
+                            notes = notes ? notes + '；專案' : '專案';
+                        }
+
+                        results.push({
+                            date: currentSchedule.date,
+                            name: fullName,
+                            startTime: currentSchedule.startTime,
+                            location: currentSchedule.location,
+                            vendor: currentSchedule.vendor,
+                            workContent: currentSchedule.workContent,
+                            amount: amount.toString(),
+                            paymentStatus: '未收',
+                            notes: notes,
+                            amount2: amount.toString(),
+                        });
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        // ==================== UI Logic ====================
+
+        let parsedData = [];
+        let filteredData = [];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            populateRules();
+
+            const inputText = document.getElementById('inputText');
+            const parseBtn = document.getElementById('parseBtn');
+
+            inputText.addEventListener('input', () => {
+                parseBtn.disabled = !inputText.value.trim();
+            });
+        });
+
+        function populateRules() {
+            // Name Mapping
+            const nameMappingList = document.getElementById('nameMappingList');
+            Object.entries(nameMapping).forEach(([short, full]) => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center';
+                div.innerHTML = `<span class="text-slate-500">${short}</span><span class="font-medium text-slate-700">${full}</span>`;
+                nameMappingList.appendChild(div);
+            });
+
+            // Main Fees
+            const mainFeeList = document.getElementById('mainFeeList');
+            Object.entries(MAIN_FEES_DISPLAY).forEach(([work, fee]) => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center';
+                div.innerHTML = `<span>${work}</span><span class="font-medium text-emerald-600">${fee}</span>`;
+                mainFeeList.appendChild(div);
+            });
+
+            // Other Fees
+            const otherFeeList = document.getElementById('otherFeeList');
+            Object.entries(OTHER_FEES_DISPLAY).forEach(([work, fee]) => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center';
+                div.innerHTML = `<span>${work}</span><span class="font-medium text-amber-600">${fee}</span>`;
+                otherFeeList.appendChild(div);
+            });
+
+            // Project Vendors
+            const projectVendorList = document.getElementById('projectVendorList');
+            projectVendors.forEach(vendor => {
+                const span = document.createElement('span');
+                span.className = 'px-1.5 py-0.5 bg-white/70 rounded text-slate-600';
+                span.textContent = vendor;
+                projectVendorList.appendChild(span);
+            });
+        }
+
+        function handleParse() {
+            const text = document.getElementById('inputText').value;
+            parsedData = parseScheduleData(text);
+            filterData(); // This will set filteredData and render
+            updateUIState();
+        }
+
+        function handleClear() {
+            document.getElementById('inputText').value = '';
+            parsedData = [];
+            filteredData = [];
+            document.getElementById('parseBtn').disabled = true;
+            updateUIState();
+        }
+
+        function filterData() {
+            const query = document.getElementById('nameFilter').value.trim();
+            let data = parsedData;
+
+            if (query) {
+                data = data.filter(row => row.name.includes(query));
+            }
+
+            // Sort by date
+            filteredData = [...data].sort((a, b) => {
+                const dateA = new Date(a.date);
+                const dateB = new Date(b.date);
+                return dateA - dateB;
+            });
+
+            renderTable();
+        }
+
+        function updateUIState() {
+            const hasData = parsedData.length > 0;
+            const emptyState = document.getElementById('emptyState');
+            const resultContainer = document.getElementById('resultContainer');
+            const countBadge = document.getElementById('countBadge');
+            const actionButtons = document.getElementById('actionButtons');
+
+            if (hasData) {
+                emptyState.classList.add('hidden');
+                resultContainer.classList.remove('hidden');
+                countBadge.classList.remove('hidden');
+                actionButtons.classList.remove('hidden');
+                countBadge.textContent = `${filteredData.length} / ${parsedData.length} 筆`;
+            } else {
+                emptyState.classList.remove('hidden');
+                resultContainer.classList.add('hidden');
+                countBadge.classList.add('hidden');
+                actionButtons.classList.add('hidden');
+            }
+
+            lucide.createIcons();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('resultBody');
+            tbody.innerHTML = '';
+
+            filteredData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-indigo-50/50 transition-colors border-b border-slate-100/50 last:border-0';
+                tr.innerHTML = `
+                    <td class="px-4 py-3 text-slate-600 text-xs">${row.date}</td>
+                    <td class="px-4 py-3 text-slate-800 text-xs font-medium">${row.name}</td>
+                    <td class="px-4 py-3 text-slate-600 text-xs font-mono">${row.startTime}</td>
+                    <td class="px-4 py-3 text-slate-600 text-xs">${row.location}</td>
+                    <td class="px-4 py-3 text-slate-600 text-xs">${row.vendor}</td>
+                    <td class="px-4 py-3 text-slate-600 text-xs">${row.workContent}</td>
+                    <td class="px-4 py-3 text-slate-600 text-xs">${row.amount}</td>
+                    <td class="px-4 py-3 text-slate-600 text-xs">${row.paymentStatus}</td>
+                    <td class="px-4 py-3 text-slate-500 text-xs">${row.notes}</td>
+                    <td class="px-4 py-3 text-slate-600 text-xs">${row.amount2}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const countBadge = document.getElementById('countBadge');
+            if (countBadge) {
+                countBadge.textContent = `${filteredData.length} / ${parsedData.length} 筆`;
+            }
+            lucide.createIcons();
+        }
+
+        function generateCSV() {
+            const headers = ['日期', '姓名', '開始時間', '地點', '廠商/單位', '工作內容', '金額', '收款狀態', '備註', '金額2'];
+            const rows = filteredData.map(row => [
+                row.date,
+                row.name,
+                row.startTime,
+                row.location,
+                row.vendor,
+                row.workContent,
+                row.amount,
+                row.paymentStatus,
+                row.notes,
+                row.amount2
+            ].map(cell => `"${(String(cell || '')).replace(/"/g, '""')}"`).join(','));
+
+            return '\uFEFF' + [headers.join(','), ...rows].join('\n');
+        }
+
+        function generateTSV() {
+            const headers = ['日期', '姓名', '開始時間', '地點', '廠商/單位', '工作內容', '金額', '收款狀態', '備註', '金額2'];
+            const rows = filteredData.map(row => [
+                row.date,
+                row.name,
+                row.startTime,
+                row.location,
+                row.vendor,
+                row.workContent,
+                row.amount,
+                row.paymentStatus,
+                row.notes,
+                row.amount2
+            ].join('\t'));
+            return [headers.join('\t'), ...rows].join('\n');
+        }
+
+        function handleDownloadCsv() {
+            const csvContent = generateCSV();
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `排班資料_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function handleCopyToClipboard() {
+            const content = generateTSV();
+            try {
+                await navigator.clipboard.writeText(content);
+
+                const btn = document.getElementById('copyBtn');
+                const originalContent = btn.innerHTML;
+                const originalClasses = [...btn.classList];
+
+                btn.innerHTML = `<i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> 已複製`;
+                btn.classList.remove('bg-gradient-to-r', 'from-indigo-500', 'to-purple-500', 'hover:from-indigo-600', 'hover:to-purple-600');
+                btn.classList.add('bg-emerald-500', 'hover:bg-emerald-600');
+
+                lucide.createIcons();
+
+                setTimeout(() => {
+                    btn.innerHTML = originalContent;
+                    btn.className = originalClasses.join(' ');
+                    lucide.createIcons();
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+                alert('複製失敗，請手動複製表格內容');
+            }
+        }
+    </script>
+</body>
+
+</html>
